@@ -1,22 +1,42 @@
 import express from "express";
-import authMiddleware from "../middleware/authMiddleware.js";
+import upload from "../middleware/uploadMiddleware.js";
 
 import {
-  getProducts,
-  getProduct,
-  toggleFavorite,
-  getFavoriteProducts
+    createProduct,
+    getProducts,
+    getProduct,
+    updateProduct,
+    deleteProduct,
+    toggleFavorite,
+    getFavoriteProducts
 } from "../controllers/productController.js";
+
+import authMiddleware from "../middleware/authMiddleware.js";
 
 const router = express.Router();
 
-
-// Correct order
 router.get("/", getProducts);
 
 router.get("/favorites", authMiddleware, getFavoriteProducts);
 
 router.get("/:id", getProduct);
+
+router.post(
+    "/",
+    authMiddleware,
+    upload.single("image"),
+    createProduct
+);
+
+
+router.put(
+    "/:id",
+    authMiddleware,
+    upload.single("image"),
+    updateProduct
+);
+
+router.delete("/:id", authMiddleware, deleteProduct);
 
 router.post("/:id/favorite", authMiddleware, toggleFavorite);
 

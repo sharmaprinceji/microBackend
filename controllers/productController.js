@@ -1,84 +1,171 @@
 import Product from "../models/Product.js";
 import User from "../models/User.js"
+import cloudinary from "../config/cloudinary.js";
 
 export const createProduct = async (req, res) => {
-    try {
 
-        const { title, price, description, image } = req.body;
+  try {
 
-        if (!title || !price || !description || !image) {
-            return res.status(400).json({
-                success: false,
-                message: "All fields are required"
-            });
-        }
+    let imageUrl = "";
 
-        const product = await Product.create({
-            title,
-            price,
-            description,
-            image
-        });
+    // CASE 1: file uploaded
+    if (req.file) {
 
-        return res.status(201).json({
-            success: true,
-            message: "Product created successfully",
-            data: product
-        });
+      const result =
+        await cloudinary.uploader.upload(
 
-    } catch (error) {
+          `data:${req.file.mimetype};base64,${req.file.buffer.toString("base64")}`,
 
-        return res.status(500).json({
-            success: false,
-            message: "Failed to create product",
-            error: error.message
-        });
+          {
+            folder: "micro-marketplace"
+          }
 
+        );
+
+      imageUrl = result.secure_url;
     }
-};
 
+    // CASE 2: image URL provided
+    else if (req.body.image) {
+
+      imageUrl = req.body.image;
+    }
+
+    else {
+
+      return res.status(400).json({
+        message: "Image required"
+      });
+    }
+
+
+    const product =
+      await Product.create({
+
+        title: req.body.title,
+
+        price: req.body.price,
+
+        description: req.body.description,
+
+        image: imageUrl
+
+      });
+
+
+    res.status(201).json({
+
+      success: true,
+
+      data: product
+
+    });
+
+  } catch (error) {
+
+    res.status(500).json({
+
+      message: error.message
+
+    });
+
+  }
+
+};
 
 export const getProducts = async (req, res) => {
 
-    try {
+  try {
 
-        const page = Math.max(parseInt(req.query.page) || 1, 1);
-        const limit = Math.max(parseInt(req.query.limit) || 10, 1);
-        const search = req.query.search?.trim() || "";
+    const page =
+      Number(req.query.page) || 1;
 
-        const query = {
-            title: { $regex: search, $options: "i" }
-        };
+    const limit =
+      Number(req.query.limit) || 8;
 
-        const [products, total] = await Promise.all([
+    const search =
+      req.query.search || "";
 
-            Product.find(query)
-                .skip((page - 1) * limit)
-                .limit(limit)
-                .sort({ createdAt: -1 })
-                .lean(),
+    const skip =
+      (page - 1) * limit;
 
-            Product.countDocuments(query)
 
-        ]);
+    // SEARCH LOGIC (title + price prefix)
+    const query = {
 
-        return res.status(200).json({
-            success: true,
-            total,
-            page,
-            pages: Math.ceil(total / limit),
-            data: products
-        });
+      $or: [
 
-    } catch (error) {
+        {
+          title: {
+            $regex: search,
+            $options: "i"
+          }
+        },
 
-        return res.status(500).json({
-            success: false,
-            message: "Failed to fetch products",
-            error: error.message
-        });
+        {
+          description: {
+            $regex: search,
+            $options: "i"
+          }
+        },
 
-    }
+        // PRICE PREFIX SEARCH
+        {
+          $expr: {
+            $regexMatch: {
+              input: {
+                $toString: "$price"
+              },
+              regex: `^${search}`
+            }
+          }
+        }
+
+      ]
+
+    };
+
+
+    const products =
+      await Product.find(
+        search ? query : {}
+      )
+      .skip(skip)
+      .limit(limit)
+      .sort({ createdAt: -1 });
+
+
+    const total =
+      await Product.countDocuments(
+        search ? query : {}
+      );
+
+
+    res.json({
+
+      success: true,
+
+      data: products,
+
+      page,
+
+      pages:
+        Math.ceil(total / limit),
+
+      total
+
+    });
+
+  } catch (error) {
+
+    res.status(500).json({
+
+      message: error.message
+
+    });
+
+  }
+
 };
 
 
@@ -114,59 +201,93 @@ export const getProduct = async (req, res) => {
 
 export const updateProduct = async (req, res) => {
 
-    try {
+  try {
 
-        const productId = req.params.id;
+    const product =
+      await Product.findById(
+        req.params.id
+      );
 
-        const updateFields = {};
-
-        const allowedFields = ["title", "price", "description", "image"];
-
-        for (const field of allowedFields) {
-            if (req.body[field] !== undefined) {
-                updateFields[field] = req.body[field];
-            }
-        }
-
-        if (Object.keys(updateFields).length === 0) {
-            return res.status(400).json({
-                success: false,
-                message: "No valid fields provided"
-            });
-        }
-
-        const updatedProduct = await Product.findByIdAndUpdate(
-            productId,
-            updateFields,
-            {
-                new: true,
-                runValidators: true
-            }
-        ).lean();
-
-        if (!updatedProduct) {
-            return res.status(404).json({
-                success: false,
-                message: "Product not found"
-            });
-        }
-
-        return res.status(200).json({
-            success: true,
-            message: "Product updated successfully",
-            data: updatedProduct
+    if (!product)
+      return res
+        .status(404)
+        .json({
+          message:
+            "Product not found"
         });
 
-    } catch (error) {
+    let imageUrl =
+      product.image;
 
-        return res.status(400).json({
-            success: false,
-            message: "Invalid product ID",
-            error: error.message
-        });
+
+    // file upload
+    if (req.file) {
+
+      const result =
+        await cloudinary.uploader.upload(
+
+          `data:${req.file.mimetype};base64,${req.file.buffer.toString("base64")}`
+
+        );
+
+      imageUrl =
+        result.secure_url;
 
     }
+
+    // URL update
+    else if (
+      req.body.image
+    ) {
+
+      imageUrl =
+        req.body.image;
+
+    }
+
+
+    product.title =
+      req.body.title ||
+      product.title;
+
+    product.price =
+      req.body.price ||
+      product.price;
+
+    product.description =
+      req.body.description ||
+      product.description;
+
+    product.image =
+      imageUrl;
+
+
+    await product.save();
+
+
+    res.json({
+
+      success: true,
+
+      data: product
+
+    });
+
+  }
+
+  catch (error) {
+
+    res.status(500).json({
+
+      message:
+        error.message
+
+    });
+
+  }
+
 };
+
 
 
 
