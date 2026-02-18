@@ -1,28 +1,35 @@
 import jwt from "jsonwebtoken";
 
-const auth = (req, res, next) => {
+const authMiddleware = (req, res, next) => {
 
-    const header = req.headers.authorization;
+  const authHeader = req.headers.authorization;
 
-    if (!header)
-        return res.status(401).json({ message: "No token" });
+  if (!authHeader) {
 
-    const token = header.split(" ")[1];
+    return res.status(401).json({
+      message: "No token provided"
+    });
+  }
 
-    if (!token)
-        return res.status(401).json({ message: "Invalid token format" });
+  try {
 
-    try {
+    const token = authHeader.split(" ")[1];
 
-        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const decoded = jwt.verify(
+      token,
+      process.env.JWT_SECRET
+    );
 
-        req.user = decoded.id;
+    req.user = decoded.id;
 
-        next();
+    next();
 
-    } catch {
-        res.status(401).json({ message: "Invalid token" });
-    }
+  } catch {
+
+    return res.status(401).json({
+      message: "Invalid token"
+    });
+  }
 };
 
-export default auth;
+export default authMiddleware;

@@ -1,12 +1,6 @@
 import Product from "../models/Product.js";
-import User from "../models/User.js";
+import User from "../models/User.js"
 
-
-
-/*
-CREATE PRODUCT
-POST /products
-*/
 export const createProduct = async (req, res) => {
     try {
 
@@ -44,17 +38,12 @@ export const createProduct = async (req, res) => {
 };
 
 
-
-/*
-GET ALL PRODUCTS (Search + Pagination)
-GET /products?search=&page=&limit=
-*/
 export const getProducts = async (req, res) => {
 
     try {
 
         const page = Math.max(parseInt(req.query.page) || 1, 1);
-        const limit = Math.max(parseInt(req.query.limit) || 5, 1);
+        const limit = Math.max(parseInt(req.query.limit) || 10, 1);
         const search = req.query.search?.trim() || "";
 
         const query = {
@@ -93,11 +82,6 @@ export const getProducts = async (req, res) => {
 };
 
 
-
-/*
-GET SINGLE PRODUCT
-GET /products/:id
-*/
 export const getProduct = async (req, res) => {
 
     try {
@@ -128,11 +112,6 @@ export const getProduct = async (req, res) => {
 };
 
 
-
-/*
-UPDATE PRODUCT
-PUT /products/:id
-*/
 export const updateProduct = async (req, res) => {
 
     try {
@@ -191,10 +170,6 @@ export const updateProduct = async (req, res) => {
 
 
 
-/*
-DELETE PRODUCT
-DELETE /products/:id
-*/
 export const deleteProduct = async (req, res) => {
 
     try {
@@ -224,50 +199,63 @@ export const deleteProduct = async (req, res) => {
 };
 
 
+export const toggleFavorite = async (req, res) => {
 
-/*
-TOGGLE FAVORITE
-POST /products/:id/favorite
-*/
-export const favorite = async (req, res) => {
+  try {
 
-    try {
+    const user = await User.findById(req.user);
 
-        const userId = req.user;
-        const productId = req.params.id;
+    const productId = req.params.id;
 
-        const user = await User.findById(userId);
+    const isFavorite =
+      user.favorites.includes(productId);
 
-        if (!user) {
-            return res.status(404).json({
-                success: false,
-                message: "User not found"
-            });
-        }
+    if (isFavorite) {
 
-        const isFavorite = user.favorites.includes(productId);
+      user.favorites.pull(productId);
 
-        await User.updateOne(
-            { _id: userId },
-            isFavorite
-                ? { $pull: { favorites: productId } }
-                : { $addToSet: { favorites: productId } }
-        );
+    } else {
 
-        return res.status(200).json({
-            success: true,
-            message: isFavorite
-                ? "Removed from favorites"
-                : "Added to favorites"
-        });
-
-    } catch (error) {
-
-        return res.status(500).json({
-            success: false,
-            message: "Favorite operation failed",
-            error: error.message
-        });
-
+      user.favorites.push(productId);
     }
+
+    await user.save();
+
+    res.status(200).json({
+
+      success: true,
+
+      isFavorite: !isFavorite
+
+    });
+
+  } catch {
+
+    res.status(500).json({
+      message: "Favorite failed"
+    });
+  }
 };
+
+
+export const getFavoriteProducts = async (req, res) => {
+
+  try {
+
+    const user = await User.findById(req.user)
+      .populate("favorites");
+
+    res.status(200).json({
+      success: true,
+      data: user.favorites
+    });
+
+  } catch (error) {
+
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+};
+

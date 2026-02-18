@@ -1,20 +1,23 @@
 import express from "express";
-import { createProduct, deleteProduct, favorite, getProduct, getProducts, updateProduct } from "../controllers/productController.js";
-import auth from "../middleware/authMiddleware.js";
-const router =express.Router();
+import authMiddleware from "../middleware/authMiddleware.js";
+
+import {
+  getProducts,
+  getProduct,
+  toggleFavorite,
+  getFavoriteProducts
+} from "../controllers/productController.js";
+
+const router = express.Router();
 
 
-
-router.post("/", auth, createProduct);
-
+// Correct order
 router.get("/", getProducts);
+
+router.get("/favorites", authMiddleware, getFavoriteProducts);
 
 router.get("/:id", getProduct);
 
-router.put("/:id", auth, updateProduct)
-
-router.post("/:id/favorite", auth, favorite);
-
-router.delete("/:id", auth, deleteProduct);
+router.post("/:id/favorite", authMiddleware, toggleFavorite);
 
 export default router;
