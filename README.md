@@ -10,13 +10,14 @@ Provides authentication, product management, favorites, search, pagination, and 
 Base URL:
 
 ```
-https://your-render-url.onrender.com
+https://microbackend.onrender.com
+
 ```
 
 Example:
 
 ```
-https://your-render-url.onrender.com/products
+https://microbackend.onrender.com/products
 ```
 
 ---
